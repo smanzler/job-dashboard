@@ -23,3 +23,10 @@ export const jobSchema = z.object({
 });
 
 export type Job = z.infer<typeof jobSchema>;
+
+export const getJobsResponseSchema = z.object({
+  jobs: z.array(jobSchema),
+  nextCursor: z.string().nullable(),
+});
+
+export type GetJobsResponse = z.infer<typeof getJobsResponseSchema>;
