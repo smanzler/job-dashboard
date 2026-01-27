@@ -68,7 +68,7 @@ function MenuItem({
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-50 w-full px-6 py-4 flex justify-between items-center">
+    <header className="sticky top-0 z-50 w-full px-6 py-4 flex justify-between items-center bg-background border-b">
       <NavigationMenu>
         <NavigationMenuList className="flex-wrap">
           <NavigationMenuItem>

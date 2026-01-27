@@ -1,8 +1,11 @@
 "use server";
 
+import { Job, jobSchema } from "@/lib/job";
 import { COLLECTION_NAME, client, DB_NAME } from "@/lib/mongo";
 
-export const getJobs = async ({ query }: { query?: any } = {}) => {
+export const getJobs = async ({ query }: { query?: any } = {}): Promise<
+  Job[]
+> => {
   try {
     await client.connect();
 
@@ -12,7 +15,9 @@ export const getJobs = async ({ query }: { query?: any } = {}) => {
 
     await client.close();
 
-    return result;
+    return result.map((job) =>
+      jobSchema.parse({ ...job, _id: job._id.toString() }),
+    );
   } catch (error) {
     console.error(error);
     throw error;
