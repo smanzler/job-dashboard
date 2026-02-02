@@ -36,3 +36,12 @@ export type GetJobsResponse = z.infer<typeof getJobsResponseSchema>;
 export const jobFilterSchema = z.enum(["all", "unread", "read", "archived"]);
 
 export type JobFilter = z.infer<typeof jobFilterSchema>;
+
+export const jobSortSchema = z.enum([
+  "posted_newest",
+  "posted_oldest",
+  "company_az",
+  "company_za",
+]);
+
+export type JobSort = z.infer<typeof jobSortSchema>;

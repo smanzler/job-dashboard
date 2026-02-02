@@ -22,10 +22,18 @@ export default async function Page({
       ? params.filter
       : "all";
 
+  const sort =
+    params.sort === "posted_newest" ||
+    params.sort === "posted_oldest" ||
+    params.sort === "company_az" ||
+    params.sort === "company_za"
+      ? params.sort
+      : "posted_newest";
+
   await queryClient.prefetchInfiniteQuery({
-    queryKey: ["jobs", filter],
+    queryKey: ["jobs", filter, sort],
     queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
-      return getJobs({ cursor: pageParam, limit: 20, filter });
+      return getJobs({ cursor: pageParam, limit: 20, filter, sort });
     },
     initialPageParam: undefined,
     getNextPageParam: (lastPage: GetJobsResponse) =>
