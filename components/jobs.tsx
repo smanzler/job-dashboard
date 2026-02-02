@@ -22,21 +22,72 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import ReactHtmlParser from "react-html-parser";
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { getJobsResponseSchema } from "@/lib/schemas";
-import { GetJobsResponse } from "@/lib/schemas";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+  InfiniteData,
+} from "@tanstack/react-query";
+import {
+  getJobsResponseSchema,
+  type GetJobsResponse,
+  type Job,
+  type JobFilter,
+} from "@/lib/schemas";
+import { useMemo } from "react";
+import {
+  markJobAsRead,
+  markJobAsUnread,
+  toggleJobArchived,
+} from "@/app/actions";
+import { Archive, ArchiveX, Eye, EyeOff } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function Jobs() {
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfiniteQuery<GetJobsResponse>({
-      queryKey: ["jobs"],
-      queryFn: async ({ pageParam }) => {
-        const url = `/api/jobs?limit=20${pageParam ? `&cursor=${pageParam}` : ""}`;
-        const res = await fetch(url);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
 
-        if (!res.ok) {
-          throw new Error("Failed to fetch jobs");
+  const filter = useMemo<JobFilter>(() => {
+    const f = searchParams.get("filter");
+    if (f === "unread" || f === "read" || f === "archived") {
+      return f;
+    }
+    return "all";
+  }, [searchParams]);
+
+  const setFilter = (newFilter: JobFilter) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (newFilter === "all") {
+      params.delete("filter");
+    } else {
+      params.set("filter", newFilter);
+    }
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
+
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfiniteQuery<
+      GetJobsResponse,
+      Error,
+      InfiniteData<GetJobsResponse>,
+      readonly unknown[],
+      string | undefined
+    >({
+      queryKey: ["jobs", filter],
+      queryFn: async ({ pageParam }) => {
+        const params = new URLSearchParams({ limit: "20" });
+
+        if (filter !== "all") {
+          params.set("filter", filter);
         }
+
+        if (pageParam) {
+          params.set("cursor", pageParam);
+        }
+
+        const res = await fetch(`/api/jobs?${params.toString()}`);
+        if (!res.ok) throw new Error("Failed to fetch jobs");
 
         const data = await res.json();
         return getJobsResponseSchema.parse(data);
@@ -44,15 +95,102 @@ export default function Jobs() {
       initialPageParam: undefined,
       getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     });
+
   const jobs = data?.pages.flatMap((page) => page.jobs) ?? [];
+
+  const markReadMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const result = await markJobAsRead(jobId);
+      if (!result.success) {
+        throw new Error(result.error || "Failed to mark as read");
+      }
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    },
+    onError: (error: Error) => {
+      alert(error.message);
+    },
+  });
+
+  const markUnreadMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const result = await markJobAsUnread(jobId);
+      if (!result.success) {
+        throw new Error(result.error || "Failed to mark as unread");
+      }
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    },
+    onError: (error: Error) => {
+      alert(error.message);
+    },
+  });
+
+  const toggleArchivedMutation = useMutation({
+    mutationFn: async ({
+      jobId,
+      archived,
+    }: {
+      jobId: string;
+      archived: boolean;
+    }) => {
+      const result = await toggleJobArchived(jobId, archived);
+      if (!result.success) {
+        throw new Error(result.error || "Failed to update");
+      }
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    },
+    onError: (error: Error) => {
+      alert(error.message);
+    },
+  });
 
   return (
     <div>
-      <h1 className="text-xl font-bold pb-4">Jobs</h1>
+      <div className="flex flex-col gap-4 pb-4">
+        <h1 className="text-xl font-bold">Jobs</h1>
+
+        <div className="flex gap-2">
+          <Button
+            variant={filter === "all" ? "default" : "outline"}
+            onClick={() => setFilter("all")}
+          >
+            All
+          </Button>
+          <Button
+            variant={filter === "unread" ? "default" : "outline"}
+            onClick={() => setFilter("unread")}
+          >
+            Unread
+          </Button>
+          <Button
+            variant={filter === "read" ? "default" : "outline"}
+            onClick={() => setFilter("read")}
+          >
+            Read
+          </Button>
+          <Button
+            variant={filter === "archived" ? "default" : "outline"}
+            onClick={() => setFilter("archived")}
+          >
+            Archived
+          </Button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-        {jobs.map((job) => (
-          <Card key={job._id.toString()}>
+        {jobs.map((job: Job) => (
+          <Card
+            key={job._id.toString()}
+            className={job.read ? "opacity-70" : ""}
+          >
             <CardHeader>
               <div className="pb-4 flex flex-row gap-4 items-center">
                 {job.company_logo && (
@@ -107,7 +245,7 @@ export default function Jobs() {
                           .map((salary) =>
                             salary != null
                               ? `$${Math.round(Number(salary) / 1000)}k`
-                              : "",
+                              : ""
                           )
                           .join("-")}
                       </Badge>
@@ -117,7 +255,7 @@ export default function Jobs() {
                     )}
                     {job.commitment &&
                       job.commitment.length > 0 &&
-                      job.commitment.map((commitment) => (
+                      job.commitment.map((commitment: string) => (
                         <Badge variant="secondary" key={commitment}>
                           {commitment}
                         </Badge>
@@ -131,7 +269,7 @@ export default function Jobs() {
             <CardContent className="flex-grow">
               {job.technical_tools && job.technical_tools.length > 0 && (
                 <div className="flex flex-wrap gap-1 items-center">
-                  {job.technical_tools.map((tool) => (
+                  {job.technical_tools.map((tool: string) => (
                     <Badge variant="outline" key={tool}>
                       {tool}
                     </Badge>
@@ -139,50 +277,85 @@ export default function Jobs() {
                 </div>
               )}
             </CardContent>
-            <CardFooter className="flex flex-col gap-2 items-end">
-              <p className="text-sm text-muted-foreground">
-                Search Source:{" "}
-                <span className="font-bold">{job.search_state}</span>
-              </p>
-              <div className="flex flex-row gap-2">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline">View Job Description</Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-h-[80vh] flex flex-col">
-                    <DialogHeader>
-                      <DialogTitle>Job Description</DialogTitle>
-                      <DialogDescription>{job.title}</DialogDescription>
-                    </DialogHeader>
-                    <div className="flex-1 overflow-y-auto min-h-0">
-                      {ReactHtmlParser(job.job_description ?? "", {
-                        transform: (node) => {
-                          if (node.type === "img") return null;
-                        },
-                      })}
-                    </div>
-                    <DialogFooter>
-                      <Button className="w-full" asChild>
-                        <Link
-                          href={job.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Apply
-                        </Link>
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-                <Button asChild>
-                  <Link
-                    href={job.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+            <CardFooter className="flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2 items-center">
+                {job.archived && <Badge variant="destructive">Archived</Badge>}
+                <p className="text-sm text-muted-foreground ml-auto">
+                  Search Source:{" "}
+                  <span className="font-bold">{job.search_state}</span>
+                </p>
+              </div>
+
+              <div className="flex flex-row gap-2 flex-wrap">
+                {job.read && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => markUnreadMutation.mutate(job._id)}
+                    title="Mark as unread"
                   >
-                    Apply
-                  </Link>
+                    <EyeOff className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() =>
+                    toggleArchivedMutation.mutate({
+                      jobId: job._id,
+                      archived: !job.archived,
+                    })
+                  }
+                  title={job.archived ? "Unarchive" : "Archive"}
+                >
+                  {job.archived ? (
+                    <ArchiveX className="h-4 w-4" />
+                  ) : (
+                    <Archive className="h-4 w-4" />
+                  )}
                 </Button>
+
+                <div className="flex flex-row gap-2 ml-auto">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline">View Job Description</Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[80vh] flex flex-col">
+                      <DialogHeader>
+                        <DialogTitle>Job Description</DialogTitle>
+                        <DialogDescription>{job.title}</DialogDescription>
+                      </DialogHeader>
+                      <div className="flex-1 overflow-y-auto min-h-0">
+                        {ReactHtmlParser(job.job_description ?? "", {
+                          transform: (node) => {
+                            if (node.type === "img") return null;
+                          },
+                        })}
+                      </div>
+                      <DialogFooter>
+                        <Button className="w-full" asChild>
+                          <Link
+                            href={job.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Apply
+                          </Link>
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  <Button asChild>
+                    <Link
+                      href={job.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => markReadMutation.mutate(job._id)}
+                    >
+                      Apply
+                    </Link>
+                  </Button>
+                </div>
               </div>
             </CardFooter>
           </Card>

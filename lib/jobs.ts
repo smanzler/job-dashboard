@@ -18,16 +18,17 @@ function decodeCursor(cursor: string): Cursor {
 export async function getJobs({
   cursor,
   limit = 20,
+  filter = "all",
 }: {
   cursor?: string;
   limit?: number;
+  filter?: string;
 }): Promise<GetJobsResponse> {
-  let query = {};
+  const queryConditions: any[] = [];
 
   if (cursor) {
     const { posted_at, id } = decodeCursor(cursor);
-
-    query = {
+    queryConditions.push({
       $or: [
         { posted_at: { $lt: new Date(posted_at) } },
         {
@@ -35,8 +36,36 @@ export async function getJobs({
           _id: { $lt: new ObjectId(id) },
         },
       ],
-    };
+    });
   }
+
+  switch (filter) {
+    case "unread":
+      queryConditions.push({
+        $or: [{ read: { $ne: true } }, { read: { $exists: false } }],
+      });
+      queryConditions.push({
+        $or: [{ archived: { $ne: true } }, { archived: { $exists: false } }],
+      });
+      break;
+    case "read":
+      queryConditions.push({ read: true });
+      queryConditions.push({
+        $or: [{ archived: { $ne: true } }, { archived: { $exists: false } }],
+      });
+      break;
+    case "archived":
+      queryConditions.push({ archived: true });
+      break;
+    case "all":
+    default:
+      queryConditions.push({
+        $or: [{ archived: { $ne: true } }, { archived: { $exists: false } }],
+      });
+      break;
+  }
+
+  const query = queryConditions.length > 0 ? { $and: queryConditions } : {};
 
   const results = await client
     .db(DB_NAME)

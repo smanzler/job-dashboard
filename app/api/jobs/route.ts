@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getJobs } from "@/lib/jobs";
-import { GetJobsResponse } from "@/lib/schemas";
 
 export async function GET(req: Request) {
   try {
@@ -8,8 +7,9 @@ export async function GET(req: Request) {
 
     const cursor = searchParams.get("cursor") ?? undefined;
     const limit = Number(searchParams.get("limit") ?? 20);
+    const filter = searchParams.get("filter") ?? "all";
 
-    const data: GetJobsResponse = await getJobs({ cursor, limit });
+    const data = await getJobs({ cursor, limit, filter });
 
     return NextResponse.json(data);
   } catch (error) {
