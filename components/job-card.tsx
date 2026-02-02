@@ -23,9 +23,11 @@ import ReactHtmlParser from "react-html-parser";
 import { Job } from "@/lib/schemas";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { markJobAsUnread } from "@/app/actions";
-import { toggleJobArchived } from "@/app/actions";
-import { markJobAsRead } from "@/app/actions";
+import {
+  markJobAsRead,
+  markJobAsUnread,
+  toggleJobArchived,
+} from "@/app/actions";
 import { Spinner } from "./ui/spinner";
 
 export default function JobCard({ job }: { job: Job }) {
@@ -86,7 +88,7 @@ export default function JobCard({ job }: { job: Job }) {
   });
 
   return (
-    <Card key={job._id.toString()} className={job.read ? "opacity-70" : ""}>
+    <Card className={job.read ? "opacity-70" : ""}>
       <CardHeader>
         <div className="pb-4 flex flex-row gap-4 items-center">
           {job.company_logo && (

@@ -1,7 +1,12 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useInfiniteQuery, InfiniteData } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  InfiniteData,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   getJobsResponseSchema,
   type GetJobsResponse,
@@ -10,7 +15,7 @@ import {
   type JobSort,
 } from "@/lib/schemas";
 import { useMemo } from "react";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, FileIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Select,
@@ -20,10 +25,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import JobCard from "./job-card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./ui/alert-dialog";
+import { archiveAllUnreadJobs } from "@/app/actions";
+import { Spinner } from "./ui/spinner";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyMedia,
+} from "./ui/empty";
 
 export default function Jobs() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
 
   const filter = useMemo<JobFilter>(() => {
     const f = searchParams.get("filter");
@@ -100,10 +126,26 @@ export default function Jobs() {
       getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     });
 
+  const archiveAllUnreadJobsMutation = useMutation({
+    mutationFn: async () => {
+      const result = await archiveAllUnreadJobs();
+      if (!result.success) {
+        throw new Error(result.error || "Failed to archive all unread jobs");
+      }
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    },
+    onError: (error: Error) => {
+      alert(error.message);
+    },
+  });
+
   const jobs = data?.pages.flatMap((page) => page.jobs) ?? [];
 
   return (
-    <div>
+    <div className="min-h-screen">
       <div className="flex flex-col gap-4 pb-4">
         <h1 className="text-xl font-bold">Jobs</h1>
 
@@ -133,6 +175,35 @@ export default function Jobs() {
             >
               Archived
             </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  disabled={archiveAllUnreadJobsMutation.isPending}
+                >
+                  {archiveAllUnreadJobsMutation.isPending && (
+                    <Spinner className="h-4 w-4" />
+                  )}
+                  Archive Unread
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Archive Unread</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to archive all unread jobs?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => archiveAllUnreadJobsMutation.mutate()}
+                  >
+                    Archive All
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
@@ -152,11 +223,25 @@ export default function Jobs() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-        {jobs.map((job: Job) => (
-          <JobCard key={job._id.toString()} job={job} />
-        ))}
-      </div>
+      {jobs.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia>
+              <FileIcon className="h-10 w-10 text-muted-foreground" />
+            </EmptyMedia>
+            <EmptyTitle>No jobs found</EmptyTitle>
+            <EmptyDescription>
+              Try changing the filter or sort.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+          {jobs.map((job: Job) => (
+            <JobCard key={job._id.toString()} job={job} />
+          ))}
+        </div>
+      )}
 
       {hasNextPage && (
         <div className="flex justify-center mt-8">
@@ -166,7 +251,8 @@ export default function Jobs() {
             variant="outline"
             size="lg"
           >
-            {isFetchingNextPage ? "Loading..." : "Load More Jobs"}
+            {isFetchingNextPage && <Spinner className="h-4 w-4" />}
+            Load More Jobs
           </Button>
         </div>
       )}
