@@ -15,6 +15,7 @@ import {
   Bookmark,
   BookmarkX,
   MoreVertical,
+  X,
 } from "lucide-react";
 import {
   Dialog,
@@ -388,6 +389,19 @@ export default function JobCard({
                 )}
                 {job.saved ? "Unsave" : "Save"}
               </DropdownMenuItem>
+              {job.appliedAt && (
+                <DropdownMenuItem
+                  onClick={() =>
+                    toggleAppliedMutation.mutate({
+                      jobId: job._id,
+                      applied: false,
+                    })
+                  }
+                >
+                  <X className="h-4 w-4" />
+                  Unapply
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
