@@ -160,12 +160,25 @@ export default function JobCard({
     },
     onSuccess: ({ jobId, applied }: { jobId: string; applied: boolean }) => {
       console.log("success");
-      queryClient.setQueryData(["jobs"], (old: Job[]) =>
-        old.map((job) =>
-          job._id === jobId
-            ? { ...job, appliedAt: applied ? new Date() : null }
-            : job
-        )
+      queryClient.setQueryData(
+        ["jobs", filter, sort],
+        (old: {
+          pages: { jobs: Job[]; nextCursor: string | null }[];
+          pageParams: string[];
+        }) => {
+          console.log("setQueryData", old);
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              jobs: page.jobs.map((job) =>
+                job._id === jobId
+                  ? { ...job, appliedAt: applied ? new Date() : null }
+                  : job
+              ),
+            })),
+          };
+        }
       );
     },
     onError: (error: Error) => {
@@ -380,7 +393,7 @@ export default function JobCard({
         </div>
       </CardFooter>
 
-      <div className="absolute top-0 right-0 translate-x-2 -translate-y-2">
+      <div className="flex flex-row gap-2 absolute top-0 right-0 translate-x-2 -translate-y-2">
         {job.appliedAt && (
           <div className="bg-background rounded-full">
             <Badge variant="secondary">Applied</Badge>
