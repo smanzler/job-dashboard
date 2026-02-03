@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "./ui/alert-dialog";
-import { archiveAllUnreadJobs } from "@/app/actions";
+import { archiveAllUnsavedJobs } from "@/app/actions";
 import { Spinner } from "./ui/spinner";
 import {
   Empty,
@@ -53,7 +53,7 @@ export default function Jobs() {
 
   const filter = useMemo<JobFilter>(() => {
     const f = searchParams.get("filter");
-    if (f === "unread" || f === "read" || f === "archived") {
+    if (f === "browse" || f === "saved" || f === "archived") {
       return f;
     }
     return "all";
@@ -126,11 +126,11 @@ export default function Jobs() {
       getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     });
 
-  const archiveAllUnreadJobsMutation = useMutation({
+  const archiveAllUnsavedJobsMutation = useMutation({
     mutationFn: async () => {
-      const result = await archiveAllUnreadJobs();
+      const result = await archiveAllUnsavedJobs();
       if (!result.success) {
-        throw new Error(result.error || "Failed to archive all unread jobs");
+        throw new Error(result.error || "Failed to archive all unsaved jobs");
       }
       return result;
     },
@@ -158,16 +158,16 @@ export default function Jobs() {
               All
             </Button>
             <Button
-              variant={filter === "unread" ? "default" : "outline"}
-              onClick={() => setFilter("unread")}
+              variant={filter === "browse" ? "default" : "outline"}
+              onClick={() => setFilter("browse")}
             >
-              Unread
+              Browse
             </Button>
             <Button
-              variant={filter === "read" ? "default" : "outline"}
-              onClick={() => setFilter("read")}
+              variant={filter === "saved" ? "default" : "outline"}
+              onClick={() => setFilter("saved")}
             >
-              Read
+              Saved
             </Button>
             <Button
               variant={filter === "archived" ? "default" : "outline"}
@@ -179,27 +179,27 @@ export default function Jobs() {
               <AlertDialogTrigger asChild>
                 <Button
                   variant="destructive"
-                  disabled={archiveAllUnreadJobsMutation.isPending}
+                  disabled={archiveAllUnsavedJobsMutation.isPending}
                 >
-                  {archiveAllUnreadJobsMutation.isPending && (
+                  {archiveAllUnsavedJobsMutation.isPending && (
                     <Spinner className="h-4 w-4" />
                   )}
-                  Archive Unread
+                  Archive Unsaved
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Archive Unread</AlertDialogTitle>
+                  <AlertDialogTitle>Archive Unsaved Jobs</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to archive all unread jobs?
+                    Are you sure you want to archive all unsaved jobs?
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={() => archiveAllUnreadJobsMutation.mutate()}
+                    onClick={() => archiveAllUnsavedJobsMutation.mutate()}
                   >
-                    Archive All
+                    Archive Unsaved Jobs
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -238,7 +238,12 @@ export default function Jobs() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
           {jobs.map((job: Job) => (
-            <JobCard key={job._id.toString()} job={job} />
+            <JobCard
+              key={job._id.toString()}
+              job={job}
+              filter={filter}
+              sort={sort}
+            />
           ))}
         </div>
       )}

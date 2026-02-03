@@ -16,8 +16,8 @@ export default async function Page({
   const params = await searchParams;
 
   const filter =
-    params.filter === "unread" ||
-    params.filter === "read" ||
+    params.filter === "browse" ||
+    params.filter === "saved" ||
     params.filter === "archived"
       ? params.filter
       : "all";

@@ -20,8 +20,9 @@ export const jobSchema = z.object({
   commitment: z.array(z.string()).nullable(),
   posted_at: z.coerce.date(),
   search_state: z.string(),
-  read: z.boolean().optional().default(false),
+  saved: z.boolean().optional().default(false),
   archived: z.boolean().optional().default(false),
+  appliedAt: z.union([z.date(), z.null()]).optional().default(null),
 });
 
 export type Job = z.infer<typeof jobSchema>;
@@ -33,7 +34,7 @@ export const getJobsResponseSchema = z.object({
 
 export type GetJobsResponse = z.infer<typeof getJobsResponseSchema>;
 
-export const jobFilterSchema = z.enum(["all", "unread", "read", "archived"]);
+export const jobFilterSchema = z.enum(["all", "browse", "saved", "archived"]);
 
 export type JobFilter = z.infer<typeof jobFilterSchema>;
 

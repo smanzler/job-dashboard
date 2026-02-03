@@ -9,7 +9,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
-import { Archive, ArchiveX, EyeOff } from "lucide-react";
+import {
+  Archive,
+  ArchiveX,
+  Bookmark,
+  BookmarkX,
+  MoreVertical,
+} from "lucide-react";
 import {
   Dialog,
   DialogTrigger,
@@ -20,45 +26,68 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import ReactHtmlParser from "react-html-parser";
-import { Job } from "@/lib/schemas";
+import { Job, JobFilter, JobSort } from "@/lib/schemas";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  markJobAsRead,
-  markJobAsUnread,
+  toggleJobSaved,
   toggleJobArchived,
+  toggleJobApplied,
 } from "@/app/actions";
 import { Spinner } from "./ui/spinner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
-export default function JobCard({ job }: { job: Job }) {
+export default function JobCard({
+  job,
+  filter,
+  sort,
+}: {
+  job: Job;
+  filter: JobFilter;
+  sort: JobSort;
+}) {
   const queryClient = useQueryClient();
 
-  const markReadMutation = useMutation({
-    mutationFn: async (jobId: string) => {
-      const result = await markJobAsRead(jobId);
+  const toggleSavedMutation = useMutation({
+    mutationFn: async ({ jobId, saved }: { jobId: string; saved: boolean }) => {
+      const result = await toggleJobSaved(jobId, saved);
       if (!result.success) {
-        throw new Error(result.error || "Failed to mark as read");
+        throw new Error(result.error || "Failed to toggle saved");
       }
-      return result;
+      return { jobId, saved };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
-    },
-    onError: (error: Error) => {
-      alert(error.message);
-    },
-  });
+    onSuccess: ({ jobId, saved }: { jobId: string; saved: boolean }) => {
+      console.log("onSuccess", filter, sort);
+      queryClient.setQueryData(["jobs", filter, sort], (old: any) => {
+        console.log("setQueryData", jobId);
+        return {
+          ...old,
+          pages: old.pages.map(
+            (page: { jobs: Job[]; nextCursor: string | null }) => ({
+              ...page,
+              jobs: page.jobs
+                .map((job) => (job._id === jobId ? { ...job, saved } : job))
+                .filter((job: Job) => {
+                  if (job._id !== jobId) {
+                    return true;
+                  }
 
-  const markUnreadMutation = useMutation({
-    mutationFn: async (jobId: string) => {
-      const result = await markJobAsUnread(jobId);
-      if (!result.success) {
-        throw new Error(result.error || "Failed to mark as unread");
-      }
-      return result;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+                  // Remove job from list if it's being unsaved in 'all' or 'saved', or being saved in any other filter
+                  return !(
+                    ((filter === "all" || filter === "saved") &&
+                      saved === false) ||
+                    (filter !== "all" && filter !== "saved" && saved === true)
+                  );
+                }),
+            })
+          ),
+        };
+      });
     },
     onError: (error: Error) => {
       alert(error.message);
@@ -77,10 +106,67 @@ export default function JobCard({ job }: { job: Job }) {
       if (!result.success) {
         throw new Error(result.error || "Failed to update");
       }
-      return result;
+      return { jobId, archived };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    onSuccess: ({ jobId, archived }: { jobId: string; archived: boolean }) => {
+      queryClient.setQueryData(
+        ["jobs", filter, sort],
+        (old: {
+          pages: { jobs: Job[]; nextCursor: string | null }[];
+          pageParams: string[];
+        }) => {
+          console.log("setQueryData", old);
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              jobs: page.jobs
+                .map((job) => (job._id === jobId ? { ...job, archived } : job))
+                .filter((job) => {
+                  if (job._id !== jobId) {
+                    return true;
+                  }
+
+                  // Remove job from list if it's being archived in 'archived', or being unarchived in any other filter
+                  return !(
+                    (filter === "archived" && archived === false) ||
+                    (filter !== "archived" && archived === true)
+                  );
+                }),
+            })),
+          };
+        }
+      );
+    },
+    onError: (error: Error) => {
+      alert(error.message);
+    },
+  });
+
+  const toggleAppliedMutation = useMutation({
+    mutationFn: async ({
+      jobId,
+      applied,
+    }: {
+      jobId: string;
+      applied: boolean;
+    }) => {
+      console.log("toggleAppliedMutation", jobId, applied);
+      const result = await toggleJobApplied(jobId, applied);
+      if (!result.success) {
+        throw new Error(result.error || "Failed to toggle applied");
+      }
+      return { jobId, applied };
+    },
+    onSuccess: ({ jobId, applied }: { jobId: string; applied: boolean }) => {
+      console.log("success");
+      queryClient.setQueryData(["jobs"], (old: Job[]) =>
+        old.map((job) =>
+          job._id === jobId
+            ? { ...job, appliedAt: applied ? new Date() : null }
+            : job
+        )
+      );
     },
     onError: (error: Error) => {
       alert(error.message);
@@ -88,7 +174,7 @@ export default function JobCard({ job }: { job: Job }) {
   });
 
   return (
-    <Card className={job.read ? "opacity-70" : ""}>
+    <Card className="relative overflow-visible">
       <CardHeader>
         <div className="pb-4 flex flex-row gap-4 items-center">
           {job.company_logo && (
@@ -176,94 +262,141 @@ export default function JobCard({ job }: { job: Job }) {
         )}
       </CardContent>
       <CardFooter className="flex flex-col gap-2">
-        <div className="flex flex-wrap gap-2 items-center">
-          {job.archived && <Badge variant="destructive">Archived</Badge>}
-          <p className="text-sm text-muted-foreground ml-auto">
-            Search Source: <span className="font-bold">{job.search_state}</span>
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground text-center">
+          Search Source: <span className="font-bold">{job.search_state}</span>
+        </p>
 
         <div className="flex flex-row gap-2 flex-wrap">
-          {job.read && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => markUnreadMutation.mutate(job._id)}
-              title="Mark as unread"
-              disabled={markUnreadMutation.isPending}
-            >
-              {markUnreadMutation.isPending ? (
-                <Spinner className="h-4 w-4" />
-              ) : (
-                <EyeOff className="h-4 w-4" />
-              )}
-            </Button>
-          )}
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={() =>
-              toggleArchivedMutation.mutate({
-                jobId: job._id,
-                archived: !job.archived,
-              })
+              toggleSavedMutation.mutate({ jobId: job._id, saved: !job.saved })
             }
-            title={job.archived ? "Unarchive" : "Archive"}
-            disabled={toggleArchivedMutation.isPending}
+            title="Toggle saved"
+            disabled={toggleSavedMutation.isPending}
           >
-            {toggleArchivedMutation.isPending ? (
+            {toggleSavedMutation.isPending ? (
               <Spinner className="h-4 w-4" />
-            ) : job.archived ? (
-              <ArchiveX className="h-4 w-4" />
+            ) : job.saved ? (
+              <BookmarkX className="h-4 w-4" />
             ) : (
-              <Archive className="h-4 w-4" />
+              <Bookmark className="h-4 w-4" />
             )}
           </Button>
 
-          <div className="flex flex-row gap-2 ml-auto">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline">View Job Description</Button>
-              </DialogTrigger>
-              <DialogContent className="max-h-[80vh] flex flex-col">
-                <DialogHeader>
-                  <DialogTitle>Job Description</DialogTitle>
-                  <DialogDescription>{job.title}</DialogDescription>
-                </DialogHeader>
-                <div className="flex-1 overflow-y-auto min-h-0">
-                  {ReactHtmlParser(job.job_description ?? "", {
-                    transform: (node) => {
-                      if (node.type === "img") return null;
-                    },
-                  })}
-                </div>
-                <DialogFooter>
-                  <Button className="w-full" asChild>
-                    <Link
-                      href={job.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => markReadMutation.mutate(job._id)}
-                    >
-                      Apply
-                    </Link>
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <Button asChild>
-              <Link
-                href={job.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => markReadMutation.mutate(job._id)}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline">View Job Description</Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[80vh] flex flex-col">
+              <DialogHeader>
+                <DialogTitle>Job Description</DialogTitle>
+                <DialogDescription>{job.title}</DialogDescription>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto min-h-0">
+                {ReactHtmlParser(job.job_description ?? "", {
+                  transform: (node) => {
+                    if (node.type === "img") return null;
+                  },
+                })}
+              </div>
+              <DialogFooter>
+                <Button className="w-full" asChild>
+                  <Link
+                    href={job.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() =>
+                      !job.appliedAt &&
+                      toggleAppliedMutation.mutate({
+                        jobId: job._id,
+                        applied: true,
+                      })
+                    }
+                  >
+                    Apply
+                  </Link>
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Button asChild>
+            <Link
+              href={job.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() =>
+                !job.appliedAt &&
+                toggleAppliedMutation.mutate({
+                  jobId: job._id,
+                  applied: true,
+                })
+              }
+            >
+              Apply
+            </Link>
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem
+                onClick={() =>
+                  toggleArchivedMutation.mutate({
+                    jobId: job._id,
+                    archived: !job.archived,
+                  })
+                }
               >
-                Apply
-              </Link>
-            </Button>
-          </div>
+                {job.archived ? (
+                  <ArchiveX className="h-4 w-4" />
+                ) : (
+                  <Archive className="h-4 w-4" />
+                )}
+                {job.archived ? "Unarchive" : "Archive"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  toggleSavedMutation.mutate({
+                    jobId: job._id,
+                    saved: !job.saved,
+                  })
+                }
+              >
+                {job.saved ? (
+                  <BookmarkX className="h-4 w-4" />
+                ) : (
+                  <Bookmark className="h-4 w-4" />
+                )}
+                {job.saved ? "Unsave" : "Save"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardFooter>
+
+      <div className="absolute top-0 right-0 translate-x-2 -translate-y-2">
+        {job.appliedAt && (
+          <div className="bg-background rounded-full">
+            <Badge variant="secondary">Applied</Badge>
+          </div>
+        )}
+        {job.saved && (
+          <div className="bg-background rounded-full">
+            <Badge variant="default">Saved</Badge>
+          </div>
+        )}
+        {job.archived && (
+          <div className="bg-background rounded-full">
+            <Badge variant="destructive">Archived</Badge>
+          </div>
+        )}
+      </div>
     </Card>
   );
 }

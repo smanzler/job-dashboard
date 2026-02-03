@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb";
-import { client, COLLECTION_NAME, DB_NAME } from "./mongo";
-import { jobSchema, type GetJobsResponse } from "./schemas";
+import client, { COLLECTION_NAME, DB_NAME } from "./mongo";
+import { JobFilter, jobSchema, JobSort, type GetJobsResponse } from "./schemas";
 
 type Cursor = {
   posted_at?: string;
@@ -25,8 +25,8 @@ export async function getJobs({
 }: {
   cursor?: string;
   limit?: number;
-  filter?: string;
-  sort?: string;
+  filter?: JobFilter;
+  sort?: JobSort;
 }): Promise<GetJobsResponse> {
   const queryConditions: any[] = [];
 
@@ -64,16 +64,16 @@ export async function getJobs({
   }
 
   switch (filter) {
-    case "unread":
+    case "browse":
       queryConditions.push({
-        $or: [{ read: { $ne: true } }, { read: { $exists: false } }],
+        $or: [{ saved: { $ne: true } }, { saved: { $exists: false } }],
       });
       queryConditions.push({
         $or: [{ archived: { $ne: true } }, { archived: { $exists: false } }],
       });
       break;
-    case "read":
-      queryConditions.push({ read: true });
+    case "saved":
+      queryConditions.push({ saved: true });
       queryConditions.push({
         $or: [{ archived: { $ne: true } }, { archived: { $exists: false } }],
       });
@@ -108,6 +108,7 @@ export async function getJobs({
       break;
   }
 
+  console.log("getting jobs");
   const results = await client
     .db(DB_NAME)
     .collection(COLLECTION_NAME)
@@ -115,6 +116,7 @@ export async function getJobs({
     .sort(sortOrder)
     .limit(limit + 1)
     .toArray();
+  console.log("jobs", results.length);
 
   const hasNextPage = results.length > limit;
   const items = hasNextPage ? results.slice(0, limit) : results;

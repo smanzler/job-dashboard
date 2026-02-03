@@ -96,7 +96,7 @@ export function AuthButton() {
             <DialogHeader>
               <DialogTitle>Authentication Required</DialogTitle>
               <DialogDescription>
-                Enter your secret key to enable mutations (read/archive
+                Enter your secret key to enable mutations (save/archive
                 actions).
               </DialogDescription>
             </DialogHeader>

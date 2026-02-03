@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getJobs } from "@/lib/jobs";
+import { jobFilterSchema, jobSortSchema } from "@/lib/schemas";
 
 export async function GET(req: Request) {
   try {
@@ -10,7 +11,12 @@ export async function GET(req: Request) {
     const filter = searchParams.get("filter") ?? "all";
     const sort = searchParams.get("sort") ?? "posted_newest";
 
-    const data = await getJobs({ cursor, limit, filter, sort });
+    const data = await getJobs({
+      cursor,
+      limit,
+      filter: jobFilterSchema.parse(filter),
+      sort: jobSortSchema.parse(sort),
+    });
 
     return NextResponse.json(data);
   } catch (error) {
