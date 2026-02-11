@@ -22,7 +22,7 @@ export const jobSchema = z.object({
   search_state: z.string(),
   saved: z.boolean().optional().default(false),
   archived: z.boolean().optional().default(false),
-  appliedAt: z.union([z.date(), z.null()]).optional().default(null),
+  appliedAt: z.union([z.date(), z.string(), z.null()]).optional().default(null),
   fit_score: z.number().nullable().optional(),
 });
 

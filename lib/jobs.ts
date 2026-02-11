@@ -122,7 +122,7 @@ export async function getJobs({
   const items = hasNextPage ? results.slice(0, limit) : results;
 
   const jobs = items.map((job) =>
-    jobSchema.parse({ ...job, _id: job._id.toString() })
+    jobSchema.parse({ ...job, _id: job._id.toString() }),
   );
 
   const last = items[items.length - 1];
