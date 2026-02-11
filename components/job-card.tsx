@@ -85,7 +85,7 @@ export default function JobCard({
                     (filter !== "all" && filter !== "saved" && saved === true)
                   );
                 }),
-            })
+            }),
           ),
         };
       });
@@ -136,7 +136,7 @@ export default function JobCard({
                 }),
             })),
           };
-        }
+        },
       );
     },
     onError: (error: Error) => {
@@ -175,11 +175,11 @@ export default function JobCard({
               jobs: page.jobs.map((job) =>
                 job._id === jobId
                   ? { ...job, appliedAt: applied ? new Date() : null }
-                  : job
+                  : job,
               ),
             })),
           };
-        }
+        },
       );
     },
     onError: (error: Error) => {
@@ -243,7 +243,7 @@ export default function JobCard({
                     .map((salary) =>
                       salary != null
                         ? `$${Math.round(Number(salary) / 1000)}k`
-                        : ""
+                        : "",
                     )
                     .join("-")}
                 </Badge>
@@ -267,7 +267,7 @@ export default function JobCard({
       <CardContent className="flex-grow">
         {job.technical_tools && job.technical_tools.length > 0 && (
           <div className="flex flex-wrap gap-1 items-center">
-            {job.technical_tools.map((tool: string) => (
+            {[...new Set(job.technical_tools)].map((tool: string) => (
               <Badge variant="outline" key={tool}>
                 {tool}
               </Badge>
@@ -407,6 +407,13 @@ export default function JobCard({
         </div>
       </CardFooter>
 
+      <div className="flex flex-row gap-2 absolute top-0 right-0 translate-x-2 -translate-y-2">
+        {job.fit_score && (
+          <div className="bg-background rounded-full">
+            <Badge variant="secondary">Fit Score: {job.fit_score}</Badge>
+          </div>
+        )}
+      </div>
       <div className="flex flex-row gap-2 absolute top-0 right-0 translate-x-2 -translate-y-2">
         {job.appliedAt && (
           <div className="bg-background rounded-full">
