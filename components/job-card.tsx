@@ -42,6 +42,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 export default function JobCard({
   job,
@@ -407,10 +408,23 @@ export default function JobCard({
         </div>
       </CardFooter>
 
-      <div className="flex flex-row gap-2 absolute top-0 right-0 translate-x-2 -translate-y-2">
+      <div className="flex flex-row gap-2 absolute top-0 left-0 -translate-x-2 -translate-y-2">
         {job.fit_score && (
           <div className="bg-background rounded-full">
-            <Badge variant="secondary">Fit Score: {job.fit_score}</Badge>
+            <Badge
+              className={cn(
+                "font-semibold",
+                job.fit_score >= 0.3
+                  ? "bg-green-500/30 text-green-500-foreground"
+                  : job.fit_score >= 0.2
+                    ? "bg-blue-500/30 text-blue-500-foreground"
+                    : job.fit_score >= 0.1
+                      ? "bg-yellow-500/30 text-yellow-500-foreground"
+                      : "bg-orange-500/30 text-orange-500-foreground",
+              )}
+            >
+              Fit: {(job.fit_score * 100).toFixed(0)}%
+            </Badge>
           </div>
         )}
       </div>
