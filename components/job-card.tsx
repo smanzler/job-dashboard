@@ -415,12 +415,12 @@ export default function JobCard({
               className={cn(
                 "font-semibold",
                 job.fit_score >= 0.3
-                  ? "bg-green-500/30 text-green-500-foreground"
+                  ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
                   : job.fit_score >= 0.2
-                    ? "bg-blue-500/30 text-blue-500-foreground"
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400"
                     : job.fit_score >= 0.1
-                      ? "bg-yellow-500/30 text-yellow-500-foreground"
-                      : "bg-orange-500/30 text-orange-500-foreground",
+                      ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400"
+                      : "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400",
               )}
             >
               Fit: {(job.fit_score * 100).toFixed(0)}%
