@@ -16,9 +16,8 @@ The actual scraping and AI scoring happens in a separate repo, [job-tracker](htt
 
 <img width="3840" height="2250" alt="image" src="https://github.com/user-attachments/assets/01d5f0cd-dfaf-4e57-b25b-3394521e8de1" />
 
-
 ## Tech Stack
 
-Frontend: Next.js, React Query
-Database: MongoDB
-AI Processing: @huggingface/transformers
+- Frontend: Next.js, React Query
+- Database: MongoDB
+- AI Processing: @huggingface/transformers
